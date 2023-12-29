@@ -131,7 +131,7 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
             
             queue_flag = await self.get_queue_flag_status()
             # if task_queue_enabled:
-            if queue_flag:
+            if queue_flag == True:
                 await self.run_task_with_queue(task_config)
             else:
                 await self.run_task_without_queue(task_config)

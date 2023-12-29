@@ -6,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-cancel_task = True  # Initialize cancel_task flag
+cancel_task = False  # Initialize cancel_task flag
 
 @shared_task
 def fibonacci(order):

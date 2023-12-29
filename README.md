@@ -1,5 +1,6 @@
 # django_taskmanager
 #### After installing the required files
+> to install required files
 ```
 pip install -r requirements.txt
 ```

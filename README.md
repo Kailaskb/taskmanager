@@ -22,11 +22,11 @@ python manage.py migrate
 ```
 python manage.py runserver
 ```
-. To run celery
+> To run celery
 ```
 celery -A taskmanager_project worker --loglevel=info
 ```
-##### Websocket urls
+### Websocket urls
 > Fibonacci task
 Client request format
 ```

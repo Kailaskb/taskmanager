@@ -104,7 +104,7 @@ class CancelTaskConsumer(AsyncWebsocketConsumer):
             
             
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
-task_queue_enabled = False  # Global switch to control the task queue state
+task_queue_enabled = True  # Global switch to control the task queue state
 
 
 class OperandsTaskConsumer(AsyncWebsocketConsumer):
@@ -157,7 +157,7 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
             redis_client.set('redis_key', response_data_string)
             print("JSON data stored in Redis.")
 
-            await self.send(text_data=json.dumps(response_data))
+            # await self.send(text_data=json.dumps(response_data))
         else:
             await self.send(text_data=json.dumps({'error': 'Task not found'}))
 
@@ -180,9 +180,6 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
             redis_client.set('redis_key', response_data_string)
             print("JSON data stored in Redis.")
 
-            await self.send(text_data=json.dumps(response_data))
+            # await self.send(text_data=json.dumps(response_data))
         else:
             await self.send(text_data=json.dumps({'error': 'Task not found'}))
-
-
-

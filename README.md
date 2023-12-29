@@ -27,26 +27,26 @@ python manage.py runserver
 celery -A taskmanager_project worker --loglevel=info
 ```
 ### Websocket urls
-> Fibonacci task
-Client request format
+#### Fibonacci task
+> Client request format
 ```
 {"task_name": "fibonacci"}
 ```
-Url
+>Url
 ```
 ws://127.0.0.1:8000/3001/
 ```
-> Cancel Fibonacci
-Client request format
+#### Cancel Fibonacci
+> Client request format
 ```
 {"action": "cancel_fibonacci_task"}
 ```
-Url
+> Url
 ```
 ws://127.0.0.1:8000/3002/
 ```
-> Update json file
-Client request format ( example json )
+#### Update/Create json file
+> Client request format ( example json )
 ```
 {
     "task_name": "task3_config",
@@ -56,27 +56,27 @@ Client request format ( example json )
       "operand2": 30
     }
 ```
-Url
+> Url
 ```
 ws://127.0.0.1:8000/3003/
 ```
-> Operands task (add)
-Client request format
+#### Operands task (add)
+> Client request format
 ```
 {"task_name": "task3_config"}
 ```
-Url
+> Url
 ```
 ws://127.0.0.1:8000/3004/
 ```
-> Get result response from redis
-Client request format
+#### Get result response from redis
+> Client request format
 ```
 {
   "key": "redis_key"
 }
 ```
-Url
+> Url
 ```
 ws://127.0.0.1:8000/3005/
 ``` 

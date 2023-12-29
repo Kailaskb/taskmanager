@@ -18,7 +18,7 @@ source virtual_environment_name/bin/activate
 python manage.py makemigrations
 python manage.py migrate
 ```
-> To run python server
+> To run the Python server
 ```
 python manage.py runserver
 ```
@@ -26,7 +26,7 @@ python manage.py runserver
 ```
 celery -A taskmanager_project worker --loglevel=info
 ```
-## Websocket urls
+## Websocket URLs
 #### Fibonacci task
 > Client request format
 ```
@@ -45,8 +45,8 @@ ws://127.0.0.1:8000/3001/
 ```
 ws://127.0.0.1:8000/3002/
 ```
-#### Update/Create json file
-> Client request format ( example json )
+#### Update/Create JSON file
+> Client request format ( example JSON )
 ```
 {
     "task_name": "task3_config",
@@ -69,7 +69,29 @@ ws://127.0.0.1:8000/3003/
 ```
 ws://127.0.0.1:8000/3004/
 ```
-#### Get result response from redis (Operands)
+#### Operand task response
+> Client request format
+```
+{
+  "key": "redis_key"
+}
+```
+> Url
+```
+ws://127.0.0.1:8000/3005/
+```
+#### Set queue flag 1/0
+> Client request format
+```
+{
+  "queue_flag": true
+}
+```
+> Url
+```
+ws://127.0.0.1:8000/3006/
+```
+#### Get result response from Redis (Operands)
 > Client request format
 ```
 {
@@ -80,7 +102,7 @@ ws://127.0.0.1:8000/3004/
 ```
 ws://127.0.0.1:8000/3005/
 ``` 
-### Check result data stored on redis (Operands)
+### Check result data stored on Redis (Operands)
 ```
 redis-cli
 ```
@@ -88,8 +110,8 @@ redis-cli
 ```
 Get redis_key
 ```
-#### Mysql commands
-> Run mysql in a terminal and enter your password
+### Mysql commands
+> Run MySQL in a terminal and enter your password
 ```
 mysql -u root -p
 ```

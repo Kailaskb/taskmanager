@@ -1,0 +1,13 @@
+{
+  "task3": {
+    "execute_navigation_task": {
+      "x": -1.85,
+      "y": 1.04,
+      "orientation_w": 1.0
+    },
+    "operands": {
+      "operand1": 40,
+      "operand2": 30
+    }
+  }
+}

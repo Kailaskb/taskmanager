@@ -110,7 +110,7 @@ redis-cli
 ```
 Get redis_key
 ```
-#### Mysql commands
+### Mysql commands
 > Run MySQL in a terminal and enter your password
 ```
 mysql -u root -p

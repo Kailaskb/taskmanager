@@ -8,3 +8,7 @@ class TaskConfig(models.Model):
 
     def __str__(self):
         return f'{self.task_name} - {self.task_id}'
+
+class QueueFlagModel(models.Model):
+    queue_flag = models.BooleanField(default=False)
+    

@@ -84,6 +84,7 @@ ws://127.0.0.1:8000/3005/
 ```
 redis-cli
 ```
+> Get updated result response 
 ```
 Get redis_key
 ```

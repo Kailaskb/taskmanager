@@ -69,7 +69,7 @@ ws://127.0.0.1:8000/3003/
 ```
 ws://127.0.0.1:8000/3004/
 ```
-#### Get result response from redis
+#### Get result response from redis (Operands)
 > Client request format
 ```
 {
@@ -80,3 +80,27 @@ ws://127.0.0.1:8000/3004/
 ```
 ws://127.0.0.1:8000/3005/
 ``` 
+### Check result data stored on redis (Operands)
+```
+redis-cli
+```
+```
+Get redis_key
+```
+#### Mysql commands
+> Run mysql in a terminal and enter your password
+```
+mysql -u root -p
+```
+> Use your database
+```
+USE db_name(taskmanager_db);
+```
+> View tables
+```
+USE TABLES;
+```
+> Select table
+```
+SELECT * FROM your_table_name (taskmanager_app_taskconfig);
+```

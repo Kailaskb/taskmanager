@@ -1,4 +1,4 @@
-# django_taskmanager
+# Django Taskmanager 
 ### After installing the required files
 > to install required files
 ```

@@ -32,7 +32,7 @@ celery -A taskmanager_project worker --loglevel=info
 ## Websocket URLs
 #### Fibonacci task
 > Client request format
-```
+```json
 {"task_name": "fibonacci"}
 ```
 >Url
@@ -41,7 +41,7 @@ ws://127.0.0.1:8000/3001/
 ```
 #### Cancel Fibonacci
 > Client request format
-```
+```json
 {"action": "cancel_fibonacci_task"}
 ```
 > Url
@@ -50,7 +50,7 @@ ws://127.0.0.1:8000/3002/
 ```
 #### Update/Create a JSON file
 > Client request format ( example JSON )
-```
+```json
 {
     "task_name": "task3_config",
     "task_id": 1,
@@ -65,7 +65,7 @@ ws://127.0.0.1:8000/3003/
 ```
 #### Operands task (add)
 > Client request format
-```
+```json
 {"task_name": "task3_config"}
 ```
 > Url
@@ -74,7 +74,7 @@ ws://127.0.0.1:8000/3004/
 ```
 #### Operand task response
 > Client request format
-```
+```json
 {
   "key": "redis_key"
 }
@@ -85,7 +85,7 @@ ws://127.0.0.1:8000/3005/
 ```
 #### Set queue flag 1/0
 > Client request format
-```
+```json
 {
   "queue_flag": true
 }
@@ -96,7 +96,7 @@ ws://127.0.0.1:8000/3006/
 ```
 #### Get result response from Redis (Operands)
 > Client request format
-```
+```json
 {
   "key": "redis_key"
 }
@@ -180,3 +180,693 @@ SELECT * FROM your_table_name (taskmanager_app_taskconfig);
 * Receives queue_flag as true / false (Received from client)
 * And updates the queue_flag value in the QueueFlagModel in models.py
 * Set the queue_flag value to true/false to turn off / on the queue_flag in OperandsTaskConsumer
+
+## Crud (json file upload)
+### Create
+#### URL
+```
+[Post] http://127.0.0.1:8000/task/json
+```
+#### Request payload
+```json
+
+{
+    "name": "task_1",
+    "task": [
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "GotoSpecifiedPose"
+              },
+              {
+                "key": "target_name",
+                "stringValue": "LM2"
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          },
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "GotoSpecifiedPose"
+              },
+              {
+                "key": "target_name",
+                "stringValue": "LM2"
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 1",
+        "actionGroupId": 0,
+        "loop": true,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      }
+    ]
+  }
+```
+#### Response payload
+```json
+{
+    "status": true,
+    "message": "success",
+    "data": {
+        "name": "task_1",
+        "task": [
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "GotoSpecifiedPose"
+                            },
+                            {
+                                "key": "target_name",
+                                "stringValue": "LM2"
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    },
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "GotoSpecifiedPose"
+                            },
+                            {
+                                "key": "target_name",
+                                "stringValue": "LM2"
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 1",
+                "actionGroupId": 0,
+                "loop": true,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            }
+        ]
+    }
+}
+```
+### List
+#### URL
+```
+[Get] http://127.0.0.1:8000/task/json
+```
+#### Response payload
+```json
+{
+    "status": true,
+    "message": "success",
+    "data": {
+        "name": "task_1",
+        "task": [
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "GotoSpecifiedPose"
+                            },
+                            {
+                                "key": "target_name",
+                                "stringValue": "LM2"
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    },
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "GotoSpecifiedPose"
+                            },
+                            {
+                                "key": "target_name",
+                                "stringValue": "LM2"
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 1",
+                "actionGroupId": 0,
+                "loop": true,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            },
+            {
+                "actionGroups": [
+                    {
+                        "actionName": "move_action",
+                        "pluginName": "MoveFactory",
+                        "params": [
+                            {
+                                "key": "skill_name",
+                                "stringValue": "Translate"
+                            },
+                            {
+                                "key": "move_dist",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_x",
+                                "doubleValue": 1
+                            },
+                            {
+                                "key": "speed_y",
+                                "doubleValue": 10
+                            }
+                        ],
+                        "ignoreReturn": false,
+                        "overtime": 0,
+                        "externalOverId": -1,
+                        "needResult": false,
+                        "sleepTime": 0,
+                        "actionId": 0
+                    }
+                ],
+                "actionGroupName": "group 2",
+                "actionGroupId": 1,
+                "loop": false,
+                "condition": "Infinite"
+            }
+        ]
+    }
+}
+```
+### Update
+#### Url
+```
+[put] http://127.0.0.1:8000/task/json/id
+```
+#### Request payload
+```json
+
+{
+    "name": "task_6",
+    "task": [
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "GotoSpecifiedPose"
+              },
+              {
+                "key": "target_name",
+                "stringValue": "LM2"
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          },
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "GotoSpecifiedPose"
+              },
+              {
+                "key": "target_name",
+                "stringValue": "LM2"
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 1",
+        "actionGroupId": 0,
+        "loop": true,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      },
+      {
+        "actionGroups": [
+          {
+            "actionName": "move_action",
+            "pluginName": "MoveFactory",
+            "params": [
+              {
+                "key": "skill_name",
+                "stringValue": "Translate"
+              },
+              {
+                "key": "move_dist",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_x",
+                "doubleValue": 1
+              },
+              {
+                "key": "speed_y",
+                "doubleValue": 10
+              }
+            ],
+            "ignoreReturn": false,
+            "overtime": 0,
+            "externalOverId": -1,
+            "needResult": false,
+            "sleepTime": 0,
+            "actionId": 0
+          }
+        ],
+        "actionGroupName": "group 2",
+        "actionGroupId": 1,
+        "loop": false,
+        "condition": "Infinite"
+      }
+    ]
+  }
+
+### Delete
+#### Url
+```
+[delete] http://127.0.0.1:8000/task/json/7
+```
+
+

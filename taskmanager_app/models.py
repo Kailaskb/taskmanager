@@ -2,8 +2,7 @@
 from django.db import models
 
 class TaskConfig(models.Model):
-    task_name = models.CharField(max_length=255)
-    task_id = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
     task = models.JSONField()
 
     def __str__(self):

@@ -23,9 +23,9 @@ class FibonacciConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        task_name = data.get('task_name')
+        name = data.get('name')
 
-        if task_name == 'fibonacci':
+        if name == 'fibonacci':
             # You can extract additional parameters from 'data' if needed
             order = data.get('order', 10)  # Default order is set to 10 if not provided
         
@@ -44,20 +44,19 @@ class FibonacciConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'status': 'Fibonacci task completed', 'feedback_response': feedback_response}))
         
         else:
-            await self.send(text_data=json.dumps({'status': f'Task {task_name} not found'}))
+            await self.send(text_data=json.dumps({'status': f'Task {name} not found'}))
 
 from asgiref.sync import sync_to_async
 class JsonLoadConsumer(AsyncWebsocketConsumer):
     @sync_to_async
-    def save_task_config(self, task_name, task_id, task):
-        existing_task = TaskConfig.objects.filter(task_name=task_name).first()
+    def save_task_config(self, name, task):
+        existing_task = TaskConfig.objects.filter(name=name).first()
         if existing_task:
             existing_task.task = task
             existing_task.save()
         else:
             TaskConfig.objects.create(
-                task_name=task_name,
-                task_id=task_id,
+                name=name,
                 task=task
             )
 
@@ -74,18 +73,23 @@ class JsonLoadConsumer(AsyncWebsocketConsumer):
             task_list = json.loads(text_data)
 
             for task in task_list:
-                task_name = task.get('task_name', '')
-                task_id = task.get('task_id', '')
-                task_value = task.get('task', {})
+                name = task.get('name')
+                task = task.get('task')
 
-                await self.save_task_config(task_name, task_id, task_value)
-                
+                if name is None or task is None:
+                    await self.send(text_data=json.dumps({'error': 'Both name and task fields are required for each task'}))
+                    return  # Stop processing further if fields are missing
+
+                await self.save_task_config(name, task)
+
             await self.send(text_data=json.dumps({'status': 'Config updated successfully'}))
-            print(task_list)
+            print(text_data)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
         except Exception as e:
             await self.send(text_data=json.dumps({'error': f'An error occurred: {str(e)}'}))
+
+
             
 class CancelTaskConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -118,8 +122,8 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
         pass
 
     @database_sync_to_async
-    def get_task_config(self, task_name):
-        return TaskConfig.objects.filter(task_name=task_name).first()
+    def get_task_config(self, name):
+        return TaskConfig.objects.filter(name=name).first()
     
     @database_sync_to_async
     def get_queue_flag_status(self):
@@ -129,8 +133,8 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
         try:
             # Assuming text_data is a JSON string, parse it
             data = json.loads(text_data)
-            task_name = data.get('task_name')
-            task_config = await self.get_task_config(task_name)
+            name = data.get('name')
+            task_config = await self.get_task_config(name)
             
             queue_flag = await self.get_queue_flag_status()
             # if task_queue_enabled:
@@ -157,7 +161,7 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
 
             response_data = {
                 "action": "Task Status",
-                "task_name": task_config.task_name,
+                "name": task_config.name,
                 "task_status": result,
             }
 
@@ -180,7 +184,7 @@ class OperandsTaskConsumer(AsyncWebsocketConsumer):
 
             response_data = {
                 "action": "Task Status",
-                "task_name": task_config.task_name,
+                "name": task_config.name,
                 "task_status": result,
             }
 

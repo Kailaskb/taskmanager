@@ -1,65 +1,48 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from .serializers import TaskConfigSerializer
 from .models import TaskConfig
-from rest_framework.response import Response
 from taskmanager_project.utils import fail, success
-from rest_framework import status
-
-
-# Create your views here.
-
 
 class Taskfile(APIView):
-    
+
     def post(self, request):
         try:
             serializer = TaskConfigSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(fail(serializer.errors), status=400)
-            name = serializer.validated_data['name']
-            task = serializer.validated_data['task']
-            obj = TaskConfig.objects.create(
-                name=name,
-                task=task
-            )    
-            data = TaskConfigSerializer(obj, many=False)
-            return Response(success(data.data), status=201)
+            if serializer.is_valid():
+                obj = serializer.save()
+                data = TaskConfigSerializer(obj).data
+                return Response(success(data), status=status.HTTP_201_CREATED)
+            return Response(fail(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response(fail(str(e)), status=500)
-    
-    
+            return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def get(self, request):
         try:
-            obj = TaskConfig.objects.all()
-            data = TaskConfigSerializer(obj, many=True)
-            return Response(success(data.data), status=200)
+            objects = TaskConfig.objects.all()
+            data = TaskConfigSerializer(objects, many=True).data
+            return Response(success(data), status=status.HTTP_200_OK)
         except Exception as e:
-            return Response(fail(str(e)), status=500)
-        
+            return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def put(self, request, id):
         try:
-            obj = TaskConfig.objects.filter(id=id)
-            serializer = TaskConfigSerializer(data= request.data)
-            if not serializer.is_valid():
-                return Response(fail(serializer.errors), status=400)
-            if not obj.exists():
-                return Response(fail('obj does not exits'), status=400)
-            obj.update(
-                name=serializer.validated_data['name'],
-                task=serializer.validated_data['task'],
-            )
-            data = TaskConfig(obj.first(), many=False)
-            return Response(success(data.data), status=200)
+            obj = get_object_or_404(TaskConfig, id=id)
+            serializer = TaskConfigSerializer(obj, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                data = TaskConfigSerializer(obj).data
+                return Response(success(data), status=status.HTTP_200_OK)
+            return Response(fail(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response(fail(str(e)), status=500)
-        
+            return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def delete(self, request, id):
         try:
-            obj = TaskConfig.objects.filter(id=id)
-            if obj.exists():
-                obj.delete()
-                return Response(success(), status=204)
-            return Response(fail('Task file does not exists'), status=400)
+            obj = get_object_or_404(TaskConfig, id=id)
+            obj.delete()
+            return Response(success(), status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            return Response(fail(str(e)), status=500)
+            return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)

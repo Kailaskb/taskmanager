@@ -45,22 +45,22 @@ class FibonacciConsumer(AsyncWebsocketConsumer):
         
         else:
             await self.send(text_data=json.dumps({'status': f'Task {task_name} not found'}))
-        
+
+from asgiref.sync import sync_to_async
 class JsonLoadConsumer(AsyncWebsocketConsumer):
-    @database_sync_to_async
-    def save_task_config(self, task_name, task_id, json_data):
+    @sync_to_async
+    def save_task_config(self, task_name, task_id, task):
         existing_task = TaskConfig.objects.filter(task_name=task_name).first()
         if existing_task:
-            existing_task.json_data = json_data
+            existing_task.task = task
             existing_task.save()
         else:
             TaskConfig.objects.create(
                 task_name=task_name,
                 task_id=task_id,
-                json_data=json_data
+                task=task
             )
-    
-    
+
     async def connect(self):
         await self.accept()
 
@@ -70,15 +70,18 @@ class JsonLoadConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         try:
-            json_data = json.loads(text_data)
+            # Convert the received text_data to a list
+            task_list = json.loads(text_data)
 
-            task_name = json_data.get('task_name', '')
-            task_id = json_data.get('task_id', '')
-            json_data_value = json_data.get('json_data', {})
+            for task in task_list:
+                task_name = task.get('task_name', '')
+                task_id = task.get('task_id', '')
+                task_value = task.get('task', {})
 
-            await self.save_task_config(task_name, task_id, json_data_value)
-
+                await self.save_task_config(task_name, task_id, task_value)
+                
             await self.send(text_data=json.dumps({'status': 'Config updated successfully'}))
+            print(task_list)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
         except Exception as e:

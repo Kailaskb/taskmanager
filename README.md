@@ -866,7 +866,7 @@ SELECT * FROM your_table_name (taskmanager_app_taskconfig);
 ### Delete
 #### Url
 ```
-[delete] http://127.0.0.1:8000/task/json/7
+[delete] http://127.0.0.1:8000/task/json/id
 ```
 
 

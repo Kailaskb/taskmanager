@@ -5,15 +5,12 @@ from taskmanager_app.client import BasicNavigator, PoseStamped, TaskResult
 from rclpy.duration import Duration
 from celery import shared_task
 
-# Load the configuration from task3_config.json
-with open('taskmanager_app/task_chain/task_configs/task3_config.json', 'r') as config_file:
-    config_data = json.load(config_file)
-
-goal_pose_config = config_data.get('task3', {}).get('execute_navigation_task', {})
+goal_pose_config = {}
 
 @shared_task
-def execute_navigation_task(json_data):
-    rclpy.init()
+def execute_navigation_task(x,y,orientation_w):
+    if not rclpy.ok():
+        rclpy.init()
 
     navigator = BasicNavigator()
 
@@ -26,9 +23,9 @@ def execute_navigation_task(json_data):
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = 'map'
         goal_pose.header.stamp = navigator.get_clock().now().to_msg()
-        goal_pose.pose.position.x = goal_pose_config.get('x', 0.0)
-        goal_pose.pose.position.y = goal_pose_config.get('y', 0.0)
-        goal_pose.pose.orientation.w = goal_pose_config.get('orientation_w', 1.0)
+        goal_pose.pose.position.x = x 
+        goal_pose.pose.position.y = y
+        goal_pose.pose.orientation.w = orientation_w
 
         navigator.goToPose(goal_pose)
 
@@ -42,8 +39,9 @@ def execute_navigation_task(json_data):
 
             # Do something with the feedback
             i = i + 1
+            # Inside the while loop where feedback is obtained
             feedback = navigator.getFeedback()
-            if feedback and i % 5 == 0:
+            if feedback and hasattr(feedback, 'estimated_time_remaining') and i % 5 == 0:
                 print('Estimated time of arrival: ' + '{0:.0f}'.format(
                     Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9)
                     + ' seconds.')
@@ -78,4 +76,8 @@ def execute_navigation_task(json_data):
         raise execute_navigation_task.retry(exc=e)
     
     finally:
-        navigator.shutdown()
+        try:
+            if hasattr(navigator, 'shutdown'):
+                navigator.shutdown()
+        except Exception as shutdown_error:
+            print(f'Error during shutdown: {shutdown_error}')

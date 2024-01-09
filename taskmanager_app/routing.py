@@ -5,7 +5,7 @@ from django.urls import re_path
 from taskmanager_app.consumers2 import FibonacciConsumer, JsonLoadConsumer, CancelTaskConsumer, OperandsTaskConsumer
 from taskmanager_app.consumer_redis import RedisDataConsumer
 from taskmanager_app.consumers2 import SetQueueFlagConsumer
-
+from taskmanager_app.consumers import NavConsumer
 
 # websocket_urlpatterns = [
 #     re_path(r'3000/$', TaskManagerConsumer.as_asgi()),
@@ -21,5 +21,6 @@ websocket_urlpatterns = [
     re_path(r'3004/$', OperandsTaskConsumer.as_asgi()),
     re_path(r'3005/$', RedisDataConsumer.as_asgi()),
     re_path(r'3006/$', SetQueueFlagConsumer.as_asgi()),
+    re_path(r'3007/$', NavConsumer.as_asgi()),
     
 ]

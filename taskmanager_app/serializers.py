@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TaskConfig
+from .models import TaskConfig, BitMapModels
 
 class TaskConfigSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,3 +11,8 @@ class TaskConfigSerializer(serializers.ModelSerializer):
         instance.task = validated_data.get('task', instance.task)
         instance.save()
         return instance
+
+class BitMapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BitMapModels
+        fields = '__all__'

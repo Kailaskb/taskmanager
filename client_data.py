@@ -1,172 +1,94 @@
-import json
-import aioredis
-import asyncio
-from celery import Celery
-from celery.result import AsyncResult
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from taskmanager_app.task_chain.task4 import fibonacci  # Assuming your tasks module is named 'tasks'
-from taskmanager_app.task_chain.task4 import set_cancel_task_flag
-from taskmanager_app.task_chain.task1 import operands 
-from taskmanager_app.models import TaskConfig
-import redis
-
-
-class FibonacciConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Clean up tasks when the WebSocket connection is closed
-        # Implement cleanup logic if needed
-        pass
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        task_name = data.get('task_name')
-
-        if task_name == 'fibonacci':
-            # You can extract additional parameters from 'data' if needed
-            order = data.get('order', 10)  # Default order is set to 10 if not provided
-        
-            # Execute the Celery task asynchronously with the provided order
-            result = fibonacci.delay(order)
-
-            task_result = AsyncResult(result.id)
-            feedback_response = None
-            
-            while not task_result.ready():
-                await asyncio.sleep(1)  # Add a small delay to avoid busy-waiting
-            if task_result.successful():
-                feedback_response = task_result.result.get('feedback_response')
-
-            
-            await self.send(text_data=json.dumps({'status': 'Fibonacci task completed', 'feedback_response': feedback_response}))
-        
-        else:
-            await self.send(text_data=json.dumps({'status': f'Task {task_name} not found'}))
-        
-class JsonLoadConsumer(AsyncWebsocketConsumer):
-    @database_sync_to_async
-    def save_task_config(self, task_name, task_id, json_data):
-        existing_task = TaskConfig.objects.filter(task_name=task_name).first()
-        if existing_task:
-            existing_task.json_data = json_data
-            existing_task.save()
-        else:
-            TaskConfig.objects.create(
-                task_name=task_name,
-                task_id=task_id,
-                json_data=json_data
-            )
-    
-    
-    async def connect(self):
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Clean up if needed
-        pass
-
-    async def receive(self, text_data):
+async def receive(self, text_data):
         try:
-            json_data = json.loads(text_data)
+            name = text_data
+            task_config = await self.get_task_config(name)
 
-            task_name = json_data.get('task_name', '')
-            task_id = json_data.get('task_id', '')
-            json_data_value = json_data.get('json_data', {})
-
-            await self.save_task_config(task_name, task_id, json_data_value)
-
-            await self.send(text_data=json.dumps({'status': 'Config updated successfully'}))
-        except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
-        except Exception as e:
-            await self.send(text_data=json.dumps({'error': f'An error occurred: {str(e)}'}))
-            
-class CancelTaskConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        pass  # Clean up if needed
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        action = data.get('action')
-
-        if action == 'cancel_fibonacci_task':
-            set_cancel_task_flag(True)
-            await self.send(text_data=json.dumps({'status': 'Fibonacci task cancellation requested'}))
-        else:
-            await self.send(text_data=json.dumps({'error': 'Invalid action'}))
-            
-            
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
-
-class OperandsTaskConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Clean up tasks when the WebSocket connection is closed
-        pass
-
-    @database_sync_to_async
-    def get_task_config(self, task_name):
-        return TaskConfig.objects.filter(task_name=task_name).first()
-
-    async def receive(self, text_data):
-        try:
-            # Assuming text_data is a JSON string, parse it
-            data = json.loads(text_data)
-            # Check if the task_name is in the TaskConfig database
-            task_name = data.get('task_name')
-            task_config = await self.get_task_config(task_name)
-
+            # Extract instance_name_to_check from task_config
             if task_config:
-                # If TaskConfig is found, extract operands and run the shared task
-                operand1 = task_config.json_data.get('operand1', 0)
-                operand2 = task_config.json_data.get('operand2', 0)
+                for task in task_config.task:
+                    for action_group in task.get("actionGroups", []):
+                        if action_group.get("actionName") == "navigation_action":
+                            for param in action_group["params"]:
+                                if param.get("key") == "target_name" and "stringValue" in param:
+                                    instance_name_to_check = param["stringValue"]
+                                    await self.response_feedback(task_name=task_config.name, actionName=action_group.get("actionName"), actionGroupName=task.get("actionGroupName"), actionGroupId=task.get("actionGroupId"))
 
-                # Run the shared task asynchronously
-                task_result = operands.delay(operand1, operand2)
-                while not task_result.ready():
-                    await asyncio.sleep(1)
+                                    # Get the live BitMapModels instance
+                                    live_bitmap_instance = await self.get_live_bitmap_instance()
 
-                # Get the result of the Celery task
-                result = AsyncResult(task_result.id).result
+                                    # Check if the instance exists and has the necessary fields
+                                    if live_bitmap_instance:
+                                        advanced_point_list = live_bitmap_instance.map.get("advancedPointList", [])
 
-                # Store the response_data in Redis
-                response_data = {
-                    "action": "Task Status",
-                    "task_name": task_name,
-                    "task_status": result,
-                }
+                                        # Check if instance_name_to_check is present in advancedPointList.instanceName
+                                        for point_data in advanced_point_list:
+                                            if "instanceName" in point_data and point_data["instanceName"] == instance_name_to_check:
+                                                dir_value = point_data.get("dir")
+                                                pos_x = point_data.get("pos", {}).get("x")
+                                                pos_y = point_data.get("pos", {}).get("y")
 
-                # Convert dictionary values to strings
-                # result_data = {str(key): str(value) for key, value in response_data.items()}
+                                                # Execute navigation task and await the result
+                                                task_result = execute_navigation_task.delay(
+                                                    x=pos_x, y=pos_y, orientation_w=dir_value
+                                                )
 
-                # Generate a custom key based on the task name
-                # redis_key = f'task_response_data:{task_name}'
-                # print(redis_key)
-                
-                response_data_string = json.dumps(response_data)
-                redis_client.set('redis_key', response_data_string)
-                print("JSON data stored in Redis.")
-                
-                
-                await self.send(text_data=json.dumps(response_data))
+                                                # Check the result using the get method
+                                                result = task_result.get()
+                                                if result['status'] == 'completed':
+                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+                                                    await self.send(text_data=f"Task {task_config.name} completed: {instance_name_to_check}")
+                                                else:
+                                                    await self.send(f"{instance_name_to_check} has been finished")
 
-            else:
-                # Handle the case when TaskConfig is not found
-                await self.send(text_data=json.dumps({'error': 'Task not found'}))
+                                    else:
+                                        await self.handle_error("Unable to check instanceName in live BitMapModels.")
 
-        except json.JSONDecodeError:
-            # Handle JSON decoding error
-            await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
+                                    # Break from the loop once a navigation_action is found in the current action group
+                                    break
+
+                            # Check if there are more tasks to process
+                            if task_config.task.index(task) < len(task_config.task) - 1:
+                                await self.send(text_data=f"Moving to the next task in {task_config.name}")
+
+                            else:
+                                await self.send(text_data=f"All tasks in {task_config.name} completed.")
+
+                else:
+                    await self.send(text_data="No task found")
 
         except Exception as e:
-            # Handle other exceptions
-            await self.send(text_data=json.dumps({'error': f'An error occurred: {str(e)}'}))
+            print(f"Error in receive method: {e}")
+            await self.handle_error(str(e))
+            
+            
+            
+            
+            await sync_to_async(TaskResponseModels.objects.create)(
+                                                        name=task_config.name,
+                                                        status=2,
+                                                    )
+            
+            async def set_cancel_flag(self):
+                await database_sync_to_async(self.update_cancel_flag)()
 
+            def update_cancel_flag(self):
+                # Update the cancel_flag field
+                flag_instance.cancel_flag = True
+                flag_instance.save()
+                
+            await self.response_feedback(task_name=task_config.name, actionName=action_group.get("actionName"), actionGroupName=task.get("actionGroupName"), actionGroupId=task.get("actionGroupId"))
+
+            async def response_feedback(self, actionName, task_name, actionGroupName, actionGroupId):
+                feedback_data = {
+                    'Action name': actionName,
+                    'Task name': task_name,
+                    'Action group name': actionGroupName,
+                    'Action group Id': actionGroupId
+                }
+                await self.channel_layer.group_send(
+                    feedback_group,
+                    {
+                        'type': 'send_feedback',
+                        'Action status': feedback_data
+                    }
+                )

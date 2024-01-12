@@ -54,6 +54,6 @@ def fibonacci(order):
         logger.info('ROS 2 shutdown completed.')
 
 # Function to set the cancel_task flag
-def set_cancel_task_flag(flag):
-    global cancel_task
-    cancel_task = flag
+# def set_cancel_task_flag(flag):
+#     global cancel_task
+#     cancel_task = flag

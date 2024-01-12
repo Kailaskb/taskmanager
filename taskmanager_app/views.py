@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import TaskConfigSerializer, BitMapSerializer
-from .models import TaskConfig, BitMapModels
+from .models import TaskConfig, BitMapModels, MapBackupModels
 from taskmanager_project.utils import fail, success
 import json
 import os
@@ -32,11 +32,21 @@ class Taskfile(APIView):
     def put(self, request, id):
         try:
             obj = get_object_or_404(TaskConfig, id=id)
-            serializer = TaskConfigSerializer(obj, data=request.data)
+            serializer = TaskConfigSerializer(obj, data=request.data, partial=True)
+
             if serializer.is_valid():
-                serializer.save()
-                data = TaskConfigSerializer(obj).data
-                return Response(success(data), status=status.HTTP_200_OK)
+                new_name = serializer.validated_data.get('name', None)
+                
+                # Check if the new name is different from the existing name
+                if new_name is not None and new_name != obj.name:
+                    serializer.save()
+                    data = TaskConfigSerializer(obj).data
+                    return Response(success(data), status=status.HTTP_200_OK)
+                else:
+                    # No change in the name, return the existing data
+                    data = TaskConfigSerializer(obj).data
+                    return Response(success(data), status=status.HTTP_200_OK)
+
             return Response(fail(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -121,10 +131,14 @@ class Mapview(APIView):
                 os.remove(temp_file_path)
 
                 
-    def put(self, request,id):
+    def put(self, request, id):
         try:
             # Assuming you are updating an existing instance based on the provided ID
             instance = get_object_or_404(BitMapModels, id=id)
+
+            # Save the old map data to MapBackupModels
+            map_backup_instance = MapBackupModels(map_backup=instance.map)
+            map_backup_instance.save()
 
             # Update only the is_live field
             instance.is_live = request.data.get('is_live', instance.is_live)
@@ -140,6 +154,7 @@ class Mapview(APIView):
             return Response(fail("Instance not found"), status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
     def delete(self, request, id):

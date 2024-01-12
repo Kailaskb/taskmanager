@@ -7,133 +7,22 @@ from celery.result import AsyncResult
 from taskmanager_app.task_chain.task3 import execute_navigation_task
 from taskmanager_app import client
 from channels.db import database_sync_to_async
-from taskmanager_app.models import TaskConfig, QueueFlagModel, BitMapModels
-
-
+from taskmanager_app.models import TaskConfig, FlagModel, BitMapModels, TaskResponseModels
+from taskmanager_app.task_chain import task3 
+from asgiref.sync import sync_to_async
 
 active_tasks = {}  # Dictionary to store active task IDs and corresponding Celery task objects
+feedback_group = "feedback_group"
 
-class TaskManagerConsumer(AsyncWebsocketConsumer):
 
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-            cls._instance.groups = set()
-            rclpy.init()
-            cls._instance.basic_navigator = client.BasicNavigator()
-        return cls._instance
+class NavConsumer(AsyncWebsocketConsumer):
     
     async def connect(self):
         await self.accept()
 
-    async def disconnect(self):
-        # Clean up tasks when the WebSocket connection is closed
-        for task_id, celery_task in active_tasks.items():
-            celery_task.revoke(terminate=True)
-        active_tasks.clear()
-
-    async def receive(self, text_data):
-        try:
-            # Assuming text_data is a JSON string, parse it
-            data = json.loads(text_data)
-            name = data.get('name')
-            task_config = await self.get_task_config(name)
-            
-            queue_flag = await self.get_queue_flag_status()
-            # if task_queue_enabled:
-            if queue_flag == True:
-                await self.run_task_with_queue(task_config)
-            else:
-                await self.run_task_without_queue(task_config)
-
-        except json.JSONDecodeError:
-            # Handle JSON decoding error
-            await self.send(text_data=json.dumps({'error': 'Invalid JSON format'}))
-
-        except Exception as e:
-            # Handle other exceptions
-            await self.send(text_data=json.dumps({'error': f'An error occurred: {str(e)}'}))
-
-        data = json.loads(text_data)
-
-        task_id = data.get('task_id')
-        task_name = data.get('task_name')
-        json_data = data.get('json_data')
-
-        task = None  # Define task outside the if block
-
-        if task_name == 'task3':
-            if task_id in active_tasks:
-                # Task with the same ID is already active, delay execution
-                await self.send(text_data=json.dumps({'status': 'Task already active with the same ID'}))
-                return
-            else:
-                # Queue the task for execution
-                task = execute_navigation_task.delay(json_data)
-                active_tasks[task_id] = task
-        else:
-            await self.send(text_data=json.dumps({'status': f'Task {task_name} not found'}))
-            return
-
-        try:
-            # Keep the WebSocket connection alive until the task is canceled or completed
-            while not AsyncResult(task.id).ready():
-                # Send task status only if connected to the specific WebSocket
-                if self.scope.get('path') == '/3001/':
-                    await self.send_task_status(task_id, 'in_progress', result=None)
-                await asyncio.sleep(1)
-
-            result = task.result
-            await self.send_task_status(task_id, 'completed', result)
-        except asyncio.CancelledError:
-            # Task was canceled by the client
-            await self.send_task_status(task_id, 'canceled', result=None)
-        finally:
-            # Clean up tasks when the task is completed or canceled
-            active_tasks.pop(task_id, None)
-            task.revoke(terminate=True)
-
-    async def send_task_status(self, task_id, status, result=None):
-        response = {
-            'action': 'task_status',
-            'task_id': task_id,
-            'status': status,
-            'result': result,
-        }
-        await self.send(text_data=json.dumps(response))
-
-
-class CancelTaskConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-
-        # Retrieve the BasicNavigator instance stored in the TaskManagerConsumer
-        task_manager_consumer = TaskManagerConsumer()
-        self.basic_navigator = task_manager_consumer.basic_navigator
-
-        # Cancel the task using BasicNavigator instance
-        self.basic_navigator.cancelTask()
-
     async def disconnect(self, close_code):
-        # Clean up tasks when the WebSocket connection is closed
-        for task_id, celery_task in active_tasks.items():
-            celery_task.revoke(terminate=True)
-        active_tasks.clear()
-
-
-class NavConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Perform actions when the WebSocket connection is disconnected
         print(f"WebSocket connection closed with code: {close_code}")
 
-        # Additional cleanup or actions can be added here
-
-        # Call the parent class's disconnect method to ensure proper cleanup
         await super().disconnect(close_code)
 
     @database_sync_to_async
@@ -144,47 +33,199 @@ class NavConsumer(AsyncWebsocketConsumer):
             print(f"Error fetching live BitMapModels instance: {e}")
             return None
 
+    @database_sync_to_async
+    def get_task_config(self, name):
+        try:
+            return TaskConfig.objects.filter(name=name).first()
+        except Exception as e:
+            print(f"Error fetching TaskConfig instance: {e}")
+            return None
+
+    async def response_feedback(self, actionName, task_name, actionGroupName, actionGroupId):
+        feedback_data = {
+            'Action name': actionName,
+            'Task name': task_name,
+            'Action group name': actionGroupName,
+            'Action group Id': actionGroupId
+        }
+        await self.channel_layer.group_send(
+            feedback_group,
+            {
+                'type': 'send_feedback',
+                'Action status': feedback_data
+            }
+        )
+
+
+    async def send_feedback(self, event):
+        feedback_data = event['data']
+        await self.send(text_data=json.dumps(feedback_data))
+
+    
+    async def handle_error(self, error_message):
+        await self.send(text_data=f"Error: {error_message}")
+
+    async def process_instance(self, instance_name_to_check, dir_value, pos_x, pos_y):
+        if dir_value is not None and pos_x is not None and pos_y is not None:
+            # Pass dir_value, pos_x, and pos_y to the Celery task
+            execute_navigation_task.delay(orientation_w=dir_value, x=pos_x, y=pos_y)
+
+            # await self.send(text_data=json.dumps({'status': 'Task has been triggered'}))
+            await self.send(text_data=f"Instance {instance_name_to_check} found in live BitMapModels!\n"
+                                      f"dir: {dir_value}\n"
+                                      f"pos: x={pos_x}, y={pos_y}")
+        else:
+            # Handle missing values
+            await self.handle_error(f"Incomplete data for instance {instance_name_to_check}.")
+
     async def receive(self, text_data):
         try:
-            # Assuming text_data is the instanceName you want to check
-            instance_name_to_check = text_data
+            name = text_data
+            task_config = await self.get_task_config(name)
 
-            # Get the live BitMapModels instance
-            live_bitmap_instance = await self.get_live_bitmap_instance()
+            # Extract instance_name_to_check from task_config
+            if task_config:
+                for task in task_config.task:
+                    for action_group in task.get("actionGroups", []):
+                        if action_group.get("actionName") == "navigation_action":
+                            for param in action_group["params"]:
+                                if param.get("key") == "target_name" and "stringValue" in param:
+                                    instance_name_to_check = param["stringValue"]
+                                    await self.response_feedback(task_name=task_config.name, actionName=action_group.get("actionName"), actionGroupName=task.get("actionGroupName"), actionGroupId=task.get("actionGroupId"))
 
-            # Check if the instance exists and has the necessary fields
-            if live_bitmap_instance:
-                advanced_point_list = live_bitmap_instance.map.get("advancedPointList", [])
+                                    # Get the live BitMapModels instance
+                                    live_bitmap_instance = await self.get_live_bitmap_instance()
 
-                # Check if instance_name_to_check is present in advancedPointList.instanceName
-                for point_data in advanced_point_list:
-                    if "instanceName" in point_data and point_data["instanceName"] == instance_name_to_check:
-                        # InstanceName found
-                        dir_value = point_data.get("dir")
-                        pos_x = point_data.get("pos", {}).get("x")
-                        pos_y = point_data.get("pos", {}).get("y")
+                                    # Check if the instance exists and has the necessary fields
+                                    if live_bitmap_instance:
+                                        advanced_point_list = live_bitmap_instance.map.get("advancedPointList", [])
 
-                        if dir_value is not None and pos_x is not None and pos_y is not None:
-                            # Pass dir_value, pos_x, and pos_y to the Celery task
-                            execute_navigation_task.delay(orientation_w=dir_value, x=pos_x, y=pos_y)
+                                        # Check if instance_name_to_check is present in advancedPointList.instanceName
+                                        for point_data in advanced_point_list:
+                                            if "instanceName" in point_data and point_data["instanceName"] == instance_name_to_check:
+                                                dir_value = point_data.get("dir")
+                                                pos_x = point_data.get("pos", {}).get("x")
+                                                pos_y = point_data.get("pos", {}).get("y")
 
-                            await self.send(text_data=json.dumps({'status': 'Task has been triggered'}))
-                            await self.send(text_data=f"Instance {instance_name_to_check} found in live BitMapModels!\n"
-                                                      f"dir: {dir_value}\n"
-                                                      f"pos: x={pos_x}, y={pos_y}")
-                        else:
-                            # Handle missing values
-                            await self.send(text_data=f"Error: Incomplete data for instance {instance_name_to_check}.")
-                        
-                        break
+                                                # Execute navigation task and await the result
+                                                task_result = execute_navigation_task.delay(
+                                                    x=pos_x, y=pos_y, orientation_w=dir_value
+                                                )
+
+                                                # Check the result using the get method
+                                                result = task_result.get()
+                                                if result['status'] == 'completed':
+                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+                                                    await self.send(text_data=f"Task {task_config.name} completed: {instance_name_to_check}")
+                                                    # await sync_to_async(TaskResponseModels.objects.create)(
+                                                    #     name=task_config.name,
+                                                    #     status=1,
+                                                    # )
+                                                else:
+                                                    await self.send(f"{instance_name_to_check} has been finished")
+                                                    # await sync_to_async(TaskResponseModels.objects.create)(
+                                                    #     name=task_config.name,
+                                                    #     status=1,
+                                                    # )
+
+                                    else:
+                                        await self.handle_error("Unable to check instanceName in live BitMapModels.")
+                                        await sync_to_async(TaskResponseModels.objects.create)(
+                                                        name=task_config.name,
+                                                        status=2,
+                                                    )
+
+                                    # Break from the loop once a navigation_action is found in the current action group
+                                    break
+
+                            # Check if there are more tasks to process
+                            if task_config.task.index(task) < len(task_config.task) - 1:
+                                await self.send(text_data=f"Moving to the next task in {task_config.name}")
+
+                            else:
+                                await self.send(text_data=f"All tasks in {task_config.name} completed.")
+                                await sync_to_async(TaskResponseModels.objects.create)(
+                                                        name=task_config.name,
+                                                        status=1,
+                                                    )
+
                 else:
-                    # InstanceName not found
-                    await self.send(text_data=f"Instance {instance_name_to_check} not found in live BitMapModels.")
-            else:
-                # Handle the case where the necessary keys are not present in the map
-                await self.send(text_data="Error: Unable to check instanceName in live BitMapModels.")
+                    await self.send(text_data="No task found")
 
         except Exception as e:
             print(f"Error in receive method: {e}")
-            # Handle the exception and send an error message to the client if needed
-            await self.send(text_data=f"Error: {str(e)}")
+            await self.handle_error(str(e))
+
+
+
+class NavResponseConsumer(AsyncWebsocketConsumer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stored_serialized_data = None
+
+    async def connect(self):
+        await self.accept()
+        await self.channel_layer.group_add(feedback_group, self.channel_name)
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(feedback_group, self.channel_name)
+
+    async def receive(self, text_data):
+        if text_data == "status":
+            # Your logic here
+            if self.stored_serialized_data:
+                # Send the stored serialized data
+                await self.send(text_data=self.stored_serialized_data)
+            else:
+                await self.send("No Action response found")
+        else:
+            await self.send("Invalid action")
+
+    async def send_feedback_data(self, event):
+        feedback_data = event['Action status']
+        print(f"Received feedback data: {feedback_data}")
+
+        # Store the serialized data in a variable
+        self.stored_serialized_data = json.dumps(feedback_data)
+
+        # Send the data
+        # await self.send_feedback_response(self.stored_serialized_data)
+
+    async def send_feedback_response(self, serialized_data):
+        # You can now use the serialized data variable as needed
+        await self.send(text_data=serialized_data)
+
+    async def send_feedback(self, feedback_data):
+        await self.channel_layer.group_send(
+            feedback_group,
+            {
+                'type': 'send_feedback_data',
+                'Action status': feedback_data
+            }
+        )
+        
+        
+from taskmanager_app.models import FlagModel
+flag_instance = FlagModel()
+class CancelGoalConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+        await self.channel_layer.group_add(feedback_group, self.channel_name)
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(feedback_group, self.channel_name)
+
+    async def receive(self, text_data):
+
+        if text_data == "cancel":
+            await sync_to_async(self.set_cancel_flag)()
+        else:
+            await self.send("Invalid action")
+
+    async def set_cancel_flag(self):
+
+            # Update the cancel_flag field
+            flag_instance.cancel_flag = True
+            flag_instance.save()
+            await self.send("flag changed to true")

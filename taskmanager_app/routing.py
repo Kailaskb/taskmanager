@@ -24,4 +24,5 @@ websocket_urlpatterns = [
     re_path(r'3007/$', NavConsumer.as_asgi()),
     re_path(r'3008/$', NavResponseConsumer.as_asgi()),
     re_path(r'3009/$', CancelGoalConsumer.as_asgi()),
+    
 ]

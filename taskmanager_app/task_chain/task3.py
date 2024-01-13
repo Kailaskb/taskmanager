@@ -6,10 +6,15 @@ from time import sleep
 from taskmanager_app.models import FlagModel
 
 goal_pose_config = {}
+global task_result
 task_result = {}
 
 @shared_task
 def execute_navigation_task(x, y, orientation_w):
+    
+    global task_result
+    
+    
     if not rclpy.ok():
         rclpy.init()
 
@@ -17,7 +22,7 @@ def execute_navigation_task(x, y, orientation_w):
 
     try:
         print("Navigation started")
-        navigator.waitUntilNav2Active()
+        # navigator.waitUntilNav2Active()
         print('Navigation server started')
 
         goal_pose = PoseStamped()
@@ -28,11 +33,13 @@ def execute_navigation_task(x, y, orientation_w):
         goal_pose.pose.orientation.w = orientation_w
 
         navigator.goToPose(goal_pose)
+        flag_instance = FlagModel.objects.first()
+        cancel_flag = flag_instance.cancel_flag
 
-        # sleep(1)
-        # if FlagModel.cancel_flag:
-        #     print(FlagModel.cancel_flag)
-        #     navigator.cancelTask()
+        if cancel_flag:
+            print("Cancel flag is true, canceling task")
+            navigator.cancelTask()
+
 
         i = 0
         while not navigator.isTaskComplete():
@@ -63,7 +70,9 @@ def execute_navigation_task(x, y, orientation_w):
 
         # Do something depending on the return code
         result = navigator.getResult()
-        task_result['status'] = str(result)
+        print('Result:', result)
+        task_result['status'] = str(result  )
+        print('Updated task_result:', task_result)
 
         if result == TaskResult.SUCCEEDED:
             print('Goal succeeded!')

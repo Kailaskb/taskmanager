@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TaskConfig, BitMapModels
+from .models import TaskConfig, BitMapModels, MapBackupModels
 
 class TaskConfigSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,3 +16,8 @@ class BitMapSerializer(serializers.ModelSerializer):
     class Meta:
         model = BitMapModels
         fields = '__all__'
+        
+class MapBackupModelsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MapBackupModels
+        fields = ['created_at', 'updated_at', 'created_user', 'updated_user', 'map_backup']

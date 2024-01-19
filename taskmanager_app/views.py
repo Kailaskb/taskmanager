@@ -43,13 +43,22 @@ class Taskfile(APIView):
                     data = TaskConfigSerializer(obj).data
                     return Response(success(data), status=status.HTTP_200_OK)
                 else:
-                    # No change in the name, return the existing data
-                    data = TaskConfigSerializer(obj).data
-                    return Response(success(data), status=status.HTTP_200_OK)
+                    # No change in the name, update the task field only
+                    updated_task = serializer.validated_data.get('task', None)
+                    if updated_task is not None:
+                        obj.task = updated_task
+                        obj.save()
+                        data = TaskConfigSerializer(obj).data
+                        return Response(success(data), status=status.HTTP_200_OK)
+                    else:
+                        # No change in the name or task, return the existing data
+                        data = TaskConfigSerializer(obj).data
+                        return Response(success(data), status=status.HTTP_200_OK)
 
             return Response(fail(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(fail(str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def delete(self, request, id):
         try:

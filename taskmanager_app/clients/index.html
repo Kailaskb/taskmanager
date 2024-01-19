@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #282c35;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #container {
+            text-align: center;
+        }
+
+        #inputContainer {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        #taskName {
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #333;
+            color: #fff;
+            width: 300px;
+        }
+
+        #toggleButton,
+        #sendButton {
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #toggleButton {
+            background-color: #2196F3; /* Blue color */
+            margin-right: 10px;
+        }
+
+        #toggleButton:hover {
+            background-color: #1e87f0;
+        }
+
+        #sendButton {
+            background-color: #4caf50; /* Green color */
+        }
+
+        #sendButton:hover {
+            background-color: #45a049;
+        }
+
+        #responseTextarea {
+            width: 400px;
+            height: 150px;
+            resize: none;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow-y: auto;
+        }
+
+        #toggleDarkMode {
+            padding: 10px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #toggleDarkMode:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>WebSocket Client</h1>
+        <div id="inputContainer">
+            <input type="text" id="taskName" placeholder="Enter task name" required>
+            <button onclick="toggleConnection()" id="toggleButton">Connect</button>
+            <button onclick="sendTask()" id="sendButton" disabled>Send Task</button>
+        </div>
+    
+        <textarea id="responseTextarea" readonly></textarea>
+
+        <button id="toggleDarkMode" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    </div>
+
+    <script>
+        const uri = "ws://192.168.1.71:8000/3010/"; // Replace with your WebSocket server address
+        let websocket;
+
+        function initWebSocket() {
+            websocket = new WebSocket(uri);
+
+            websocket.onopen = () => {
+                document.getElementById("toggleButton").innerText = "Disconnect";
+                document.getElementById("toggleButton").style.backgroundColor = "#e53935"; // Red color
+                document.getElementById("taskName").disabled = false;
+                document.getElementById("sendButton").disabled = false;
+                logMessage("WebSocket connection opened");
+            };
+
+            websocket.onmessage = (event) => {
+                logMessage(`Received response: ${event.data}`);
+            };
+
+            websocket.onclose = (event) => {
+                document.getElementById("toggleButton").innerText = "Connect";
+                document.getElementById("toggleButton").style.backgroundColor = "#2196F3"; // Blue color
+                document.getElementById("taskName").disabled = true;
+                document.getElementById("sendButton").disabled = true;
+                logMessage("WebSocket connection closed");
+            };
+        }
+
+        function toggleConnection() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.close();
+            } else {
+                initWebSocket();
+            }
+        }
+
+        function sendTask() {
+            const taskNameInput = document.getElementById("taskName");
+            const taskName = taskNameInput.value.trim();
+
+            if (taskName !== "") {
+                websocket.send(taskName);
+                logMessage(`Sent task: ${taskName}`);
+                taskNameInput.value = ""; // Clear the input
+            } else {
+                alert("Task Name cannot be empty");
+            }
+        }
+
+        function logMessage(message) {
+            const responseTextarea = document.getElementById("responseTextarea");
+            responseTextarea.value += `${message}\n`;
+            responseTextarea.scrollTop = responseTextarea.scrollHeight; // Scroll to the bottom
+        }
+
+        function toggleDarkMode() {
+            const body = document.body;
+            const isDarkMode = body.style.backgroundColor === "rgb(40, 44, 53)";
+            
+            if (isDarkMode) {
+                body.style.backgroundColor = "#f0f0f0";
+                body.style.color = "#000";
+            } else {
+                body.style.backgroundColor = "#282c35";
+                body.style.color = "#fff";
+            }
+        }
+
+        // Initialize WebSocket on page load
+        window.onload = initWebSocket;
+    </script>
+</body>
+</html>

@@ -94,5 +94,10 @@ def execute_navigation_task(x, y, orientation_w):
                 navigator.shutdown()
         except Exception as shutdown_error:
             print(f'Error during shutdown: {shutdown_error}')
+        finally:
+            # Set the navigator variable to None to release the reference
+            navigator = None
+
+
 
     return task_result

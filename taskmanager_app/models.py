@@ -65,3 +65,4 @@ class TaskResponseModels(models.Model):
     updated_user = models.CharField(max_length=50, default='admin')
     name  = models.CharField(max_length=50)
     status = models.IntegerField()
+    canceled_by = models.CharField(max_length=50, default='user/server')

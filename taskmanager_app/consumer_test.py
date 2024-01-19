@@ -9,14 +9,15 @@ from asgiref.sync import async_to_sync
 import asyncio
 
 
-class CombinedConsumer(AsyncWebsocketConsumer):
+class TestCombinedConsumer(AsyncWebsocketConsumer):
     active_tasks = {}
     flag_instance = FlagModel()
     feedback_group = "feedback_group"
     TASK_RESPONSE = {
         'SUCCEEDED': 1,
         'CANCELED': 2,
-        'FAILED': 3
+        'FAILED': 3,
+        'UNKNOWN' : 4
     }
 
     def __init__(self, *args, **kwargs):
@@ -120,26 +121,16 @@ class CombinedConsumer(AsyncWebsocketConsumer):
         else:
             # Handle missing values
             await self.handle_error(f"Incomplete data for instance {instance_name_to_check}.")
-    
+
+
     async def receive(self, text_data):
         try:
             name = text_data
             task_config = await self.get_task_config(name)
-
-            # Extract instance_name_to_check from task_config
-
-            if name == "cancel":
-                await self.set_cancel_flag()
-                await self.send(text_data=json.dumps({'message': 'Cancel flag changed to true'}))
-
-            elif name == "status":
-                if self.stored_serialized_data:
-                    await self.send(text_data=self.stored_serialized_data)
-                else:
-                    await self.send(text_data="No Action response found")
-
-            elif task_config:
+                
+            if task_config:
                 for task in task_config.task:
+                    # Extract instance_name_to_check from task
                     for action_group in task.get("actionGroups", []):
                         if action_group.get("actionName") == "navigation_action":
                             for param in action_group["params"]:
@@ -162,92 +153,82 @@ class CombinedConsumer(AsyncWebsocketConsumer):
                                                 pos_y = point_data.get("pos", {}).get("y")
 
                                                 # Execute navigation task and await the result
-                                                
                                                 task_result = execute_navigation_task.delay(
                                                     x=pos_x, y=pos_y, orientation_w=dir_value
                                                 )
 
-                                                # task_result = execute_navigation_task.apply_async(
-                                                # args=(),
-                                                # kwargs={'x': pos_x, 'y': pos_y, 'orientation_w': dir_value},
-                                                # )
-                                                
-                                                # while not task_result.ready():
-                                                #     # Check for cancellation
-                                                #     if await database_sync_to_async(lambda: FlagModel.objects.get(pk=1).cancel_flag)():
-                                                #         task_result.revoke(terminate=True)
-                                                #         await self.send(text_data=json.dumps({'message': 'Task canceled.'}))
-                                                #         break
-                                                #     await asyncio.sleep(1)
-
                                                 # Check the result using the get method
                                                 result = task_result.get()
 
-                                                if result['status'] == 'TaskResult.SUCCEEDED':
-                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
-                                                    await self.send(text_data=f"Task {task_config.name} completed: {instance_name_to_check}")
-                                                    await sync_to_async(TaskResponseModels.objects.create)(
-                                                        name=task_config.name,
-                                                        status=1,
-                                                    )
-                                                elif result['status'] == 'TaskResult.CANCELED':
-                                                    # Check the external cancel flag (e.g., in the database)
-                                                    external_cancel_flag = await database_sync_to_async(
-                                                        lambda: FlagModel.objects.get(pk=1).cancel_flag
-                                                    )()
+                                                # Process the result based on status
+                                                await self.process_task_result(result, task_config, instance_name_to_check, dir_value, pos_x, pos_y)
 
-                                                    # If the external cancel flag is still True, update it to False
-                                                    if external_cancel_flag:
-                                                        await database_sync_to_async(
-                                                            lambda: FlagModel.objects.filter(pk=1).update(cancel_flag=False)
-                                                        )()
-                                                        await self.send(f"Cancel flag changed to False")
-
-                                                    # Process the instance and send appropriate messages
-                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
-                                                    await self.send(text_data=f"Task {task_config.name} was canceled: {instance_name_to_check}")
-                                                    await sync_to_async(TaskResponseModels.objects.create)(
-                                                        name=task_config.name,
-                                                        status=2,
-                                                    )
-
-                                                elif result['status'] == 'TaskResult.FAILED':
-                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
-                                                    await self.send(text_data=f"Task {task_config.name} was failed: {instance_name_to_check}")
-                                                    await sync_to_async(TaskResponseModels.objects.create)(
-                                                        name=task_config.name,
-                                                        status=3,
-                                                    )
-                                                    
-                                                else:
-                                                    await self.send(f"{instance_name_to_check} has been finished")
-                                                    # await sync_to_async(TaskResponseModels.objects.create)(
-                                                    #     name=task_config.name,
-                                                    #     status=1,
-                                                    # )
-
-                                    else:
-                                        await self.handle_error("Unable to check instanceName in live BitMapModels.")
-                                        await sync_to_async(TaskResponseModels.objects.create)(
-                                                        name=task_config.name,
-                                                        status=3,
-                                                    )
-
-                                    # Break from the loop once a navigation_action is found in the current action group
-                                    break
-
-                            # Check if there are more tasks to process
-                            if task_config.task.index(task) < len(task_config.task) - 1:
-                                await self.send(text_data=f"Moving to the next task in {task_config.name}")
+                                        # If navigation action is found, break from the loop
+                                        break
 
                             else:
-                                await self.send(text_data=f"All tasks in {task_config.name} completed.")
+                                await self.send(f"No navigation action found in task {task_config.name}")
 
                 else:
-                    await self.send(text_data="No task found")
+                    await self.send(f"All tasks in {task_config.name} completed.")
 
             else:
-                    await self.send(text_data="No action found")
+                await self.send("No task found")
+
         except Exception as e:
-            await self.handle_error(f"An error occurred: {str(e)}")
-            
+            print(f"Error in receive method: {e}")
+            await self.handle_error(str(e))
+
+    async def process_task_result(self, result, task_config, instance_name_to_check, dir_value, pos_x, pos_y):
+        if result['status'] == 'TaskResult.SUCCEEDED':
+            await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+            await self.send(text_data=f"Task {task_config.name} completed: {instance_name_to_check}")
+            await sync_to_async(TaskResponseModels.objects.create)(
+                name=task_config.name,
+                status=1,
+            )
+        elif result['status'] == 'TaskResult.CANCELED':
+            await self.handle_cancel_result(task_config, instance_name_to_check, dir_value, pos_x, pos_y)
+        elif result['status'] == 'TaskResult.FAILED':
+            await self.handle_failed_result(task_config, instance_name_to_check, dir_value, pos_x, pos_y)
+        elif result['status'] == 'TaskResult.UNKNOWN':
+            await self.handle_unknown_result(task_config, instance_name_to_check, dir_value, pos_x, pos_y)
+        else:
+            await self.send(f"{instance_name_to_check} has been finished")
+
+    async def handle_cancel_result(self, task_config, instance_name_to_check, dir_value, pos_x, pos_y):
+        # Check the external cancel flag (e.g., in the database)
+        external_cancel_flag = await database_sync_to_async(
+            lambda: FlagModel.objects.get(pk=1).cancel_flag
+        )()
+
+        # If the external cancel flag is still True, update it to False
+        if external_cancel_flag:
+            await database_sync_to_async(
+                lambda: FlagModel.objects.filter(pk=1).update(cancel_flag=False)
+            )()
+            await self.send(f"Cancel flag changed to False")
+
+        # Process the instance and send appropriate messages
+        await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+        await self.send(text_data=f"Task {task_config.name} was canceled: {instance_name_to_check}")
+        await sync_to_async(TaskResponseModels.objects.create)(
+            name=task_config.name,
+            status=2,
+        )
+
+    async def handle_failed_result(self, task_config, instance_name_to_check, dir_value, pos_x, pos_y):
+        await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+        await self.send(text_data=f"Task {task_config.name} was failed: {instance_name_to_check}")
+        await sync_to_async(TaskResponseModels.objects.create)(
+            name=task_config.name,
+            status=3,
+        )
+
+    async def handle_unknown_result(self, task_config, instance_name_to_check, dir_value, pos_x, pos_y):
+        await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
+        await self.send(text_data=f"Task {task_config.name} was failed: {instance_name_to_check}")
+        await sync_to_async(TaskResponseModels.objects.create)(
+            name=task_config.name,
+            status=4,
+        )

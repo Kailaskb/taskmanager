@@ -16,8 +16,7 @@ class CombinedConsumer(AsyncWebsocketConsumer):
     TASK_RESPONSE = {
         'SUCCEEDED': 1,
         'CANCELED': 2,
-        'FAILED': 3,
-        'UNKNOWN' : 4
+        'FAILED': 3
     }
 
     def __init__(self, *args, **kwargs):
@@ -90,6 +89,7 @@ class CombinedConsumer(AsyncWebsocketConsumer):
     
     async def send_feedback_data(self, event):
         feedback_data = event['Action status']
+        await self.send(feedback_data)
         print(f"Received feedback data: {feedback_data}")
         
         
@@ -126,9 +126,21 @@ class CombinedConsumer(AsyncWebsocketConsumer):
         try:
             name = text_data
             task_config = await self.get_task_config(name)
-                    
+
             # Extract instance_name_to_check from task_config
-            if task_config:
+
+            if name == "cancel":
+                await self.set_cancel_flag()
+                await self.send(text_data=json.dumps({'message': 'Cancel flag changed to true'}))
+                
+            elif name == "status":
+                if self.stored_serialized_data:
+                    await self.send(text_data=self.stored_serialized_data)
+                else:
+                    await self.send(text_data="No Action response found")
+
+
+            elif task_config:
                 for task in task_config.task:
                     for action_group in task.get("actionGroups", []):
                         if action_group.get("actionName") == "navigation_action":
@@ -152,9 +164,23 @@ class CombinedConsumer(AsyncWebsocketConsumer):
                                                 pos_y = point_data.get("pos", {}).get("y")
 
                                                 # Execute navigation task and await the result
+                                                
                                                 task_result = execute_navigation_task.delay(
                                                     x=pos_x, y=pos_y, orientation_w=dir_value
                                                 )
+
+                                                # task_result = execute_navigation_task.apply_async(
+                                                # args=(),
+                                                # kwargs={'x': pos_x, 'y': pos_y, 'orientation_w': dir_value},
+                                                # )
+                                                
+                                                # while not task_result.ready():
+                                                #     # Check for cancellation
+                                                #     if await database_sync_to_async(lambda: FlagModel.objects.get(pk=1).cancel_flag)():
+                                                #         task_result.revoke(terminate=True)
+                                                #         await self.send(text_data=json.dumps({'message': 'Task canceled.'}))
+                                                #         break
+                                                #     await asyncio.sleep(1)
 
                                                 # Check the result using the get method
                                                 result = task_result.get()
@@ -194,14 +220,6 @@ class CombinedConsumer(AsyncWebsocketConsumer):
                                                         name=task_config.name,
                                                         status=3,
                                                     )
-                                                
-                                                elif result['status'] == 'TaskResult.UNKNOWN':
-                                                    await self.process_instance(instance_name_to_check, dir_value, pos_x, pos_y)
-                                                    await self.send(text_data=f"Task {task_config.name} was failed: {instance_name_to_check}")
-                                                    await sync_to_async(TaskResponseModels.objects.create)(
-                                                        name=task_config.name,
-                                                        status=4,
-                                                    )
                                                     
                                                 else:
                                                     await self.send(f"{instance_name_to_check} has been finished")
@@ -228,18 +246,10 @@ class CombinedConsumer(AsyncWebsocketConsumer):
                                 await self.send(text_data=f"All tasks in {task_config.name} completed.")
 
                 else:
-                    await self.send(text_data="No task found")
+                    await self.send(text_data="All done !!!")
                     
-            elif name == "cancel":
-                await self.set_cancel_flag()
-                await self.send(text_data=json.dumps({'message': 'Cancel flag changed to true'}))
-
-            elif name == "status":
-                if self.stored_serialized_data:
-                    await self.send(text_data=self.stored_serialized_data)
-                else:
-                    await self.send(text_data="No Action response found")
-                    
+            else:
+                    await self.send(text_data="No action found")
         except Exception as e:
-            print(f"Error in receive method: {e}")
-            await self.handle_error(str(e))
+            await self.handle_error(f"An error occurred: {str(e)}")
+            
